@@ -18,3 +18,24 @@ model Message {
   notes       String   @default("")
   createdAt   DateTime @default(now())
 }
+
+model Project {
+  id          String   @id @default(cuid())
+  titleEn     String
+  titleRu     String
+  descEn      String
+  descRu      String
+  detailsEn   String   @default("")
+  detailsRu   String   @default("")
+  tags        String[] @default([])
+  price       String   @default("")
+  link        String   @default("")
+  visible     Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model SiteSettings {
+  id                String  @id @default("main")
+  showProjects      Boolean @default(true)
+}
