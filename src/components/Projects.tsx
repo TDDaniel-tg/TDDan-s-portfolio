@@ -175,7 +175,7 @@ export default function Projects() {
                                         title: project.title,
                                         desc: project.desc,
                                         details: project.details,
-                                        tags: project.tags,
+                                        tags: [...project.tags],
                                         price: project.price,
                                         link: project.link,
                                     })
