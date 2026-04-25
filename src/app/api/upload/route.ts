@@ -29,10 +29,10 @@ export async function POST(request: Request) {
             return NextResponse.json(data, { status: res.status });
         }
 
-        // Return full URL
+        // Return proxied URL (avoids mixed-content HTTPS/HTTP issues)
         return NextResponse.json({
             ...data,
-            url: `${FILES_SERVER_URL}${data.url}`,
+            url: `/api/files${data.url}`,
         });
     } catch (e) {
         console.error("Upload proxy error:", e);
