@@ -336,25 +336,47 @@ function ProjectsTab() {
         fetchProjects();
     };
 
+    // Compress image client-side before uploading (keeps under Netlify 6MB limit)
+    const compressImage = (file: File): Promise<File> => {
+        return new Promise((resolve, reject) => {
+            if (file.size <= 4 * 1024 * 1024) { resolve(file); return; }
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                let w = img.width, h = img.height;
+                const scale = Math.min(1600 / w, 1600 / h, 1);
+                w = Math.round(w * scale);
+                h = Math.round(h * scale);
+                canvas.width = w;
+                canvas.height = h;
+                canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+                canvas.toBlob(
+                    (blob) => {
+                        if (!blob) { reject(new Error("Compression failed")); return; }
+                        resolve(new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" }));
+                    },
+                    "image/jpeg",
+                    0.8
+                );
+                URL.revokeObjectURL(img.src);
+            };
+            img.onerror = () => reject(new Error("Image load failed"));
+            img.src = URL.createObjectURL(file);
+        });
+    };
+
     const handleImageUpload = async (file: File) => {
         setUploading(true);
         try {
-            // Get upload config (VPS URL + secret)
-            const cfgRes = await fetch("/api/upload-config");
-            const cfg = await cfgRes.json();
-
-            // Upload directly to VPS (bypasses Netlify body limit)
+            const compressed = await compressImage(file);
             const form = new FormData();
-            form.append("file", file);
-            const res = await fetch(`${cfg.filesServerUrl}/upload`, {
-                method: "POST",
-                headers: { "x-upload-secret": cfg.uploadSecret },
-                body: form,
-            });
+            form.append("file", compressed);
+            const res = await fetch("/api/upload", { method: "POST", body: form });
             const data = await res.json();
             if (data.url) {
-                // Store proxied URL for HTTPS display
-                setEditing((prev) => prev ? { ...prev, imageUrl: `/api/files${data.url}` } : prev);
+                setEditing((prev) => prev ? { ...prev, imageUrl: data.url } : prev);
+            } else {
+                console.error("Upload response:", data);
             }
         } catch (e) {
             console.error("Upload failed:", e);
@@ -367,16 +389,11 @@ function ProjectsTab() {
         if (!editing?.imageUrl) return;
         const filename = editing.imageUrl.split("/").pop();
         if (filename) {
-            try {
-                const cfgRes = await fetch("/api/upload-config");
-                const cfg = await cfgRes.json();
-                await fetch(`${cfg.filesServerUrl}/delete/${filename}`, {
-                    method: "DELETE",
-                    headers: { "x-upload-secret": cfg.uploadSecret },
-                });
-            } catch (e) {
-                console.error("Delete failed:", e);
-            }
+            await fetch("/api/upload", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filename }),
+            });
         }
         setEditing((prev) => prev ? { ...prev, imageUrl: "" } : prev);
     };
