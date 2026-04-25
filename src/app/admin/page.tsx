@@ -25,6 +25,7 @@ interface Project {
     detailsRu: string;
     tags: string[];
     price: string;
+    imageUrl: string;
     link: string;
     visible: boolean;
     order: number;
@@ -294,6 +295,7 @@ function ProjectsTab() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [editing, setEditing] = useState<Partial<Project> | null>(null);
     const [loading, setLoading] = useState(true);
+    const [uploading, setUploading] = useState(false);
 
     const fetchProjects = useCallback(async () => {
         try {
@@ -334,9 +336,39 @@ function ProjectsTab() {
         fetchProjects();
     };
 
+    const handleImageUpload = async (file: File) => {
+        setUploading(true);
+        try {
+            const form = new FormData();
+            form.append("file", file);
+            const res = await fetch("/api/upload", { method: "POST", body: form });
+            const data = await res.json();
+            if (data.url) {
+                setEditing((prev) => prev ? { ...prev, imageUrl: data.url } : prev);
+            }
+        } catch (e) {
+            console.error("Upload failed:", e);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleImageDelete = async () => {
+        if (!editing?.imageUrl) return;
+        const filename = editing.imageUrl.split("/").pop();
+        if (filename) {
+            await fetch("/api/upload", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filename }),
+            });
+        }
+        setEditing((prev) => prev ? { ...prev, imageUrl: "" } : prev);
+    };
+
     const emptyProject: Partial<Project> = {
         titleEn: "", titleRu: "", descEn: "", descRu: "",
-        detailsEn: "", detailsRu: "", tags: [], price: "", link: "", visible: true, order: projects.length,
+        detailsEn: "", detailsRu: "", tags: [], price: "", imageUrl: "", link: "", visible: true, order: projects.length,
     };
 
     return (
@@ -435,6 +467,60 @@ function ProjectsTab() {
                                 <FieldInput label="Цена" value={editing.price || ""} onChange={(v) => setEditing({ ...editing, price: v })} placeholder="$2,000" />
                                 <FieldInput label="Ссылка" value={editing.link || ""} onChange={(v) => setEditing({ ...editing, link: v })} placeholder="https://..." />
                             </div>
+                            {/* Image Upload */}
+                            <div>
+                                <span style={{ fontSize: "11px", color: "#666", display: "block", marginBottom: "6px" }}>Изображение проекта</span>
+                                {editing.imageUrl ? (
+                                    <div style={{ position: "relative", borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                        <img src={editing.imageUrl} alt="preview" style={{ width: "100%", maxHeight: "200px", objectFit: "cover", display: "block" }} />
+                                        <button
+                                            onClick={handleImageDelete}
+                                            style={{
+                                                position: "absolute", top: "8px", right: "8px",
+                                                width: "28px", height: "28px", borderRadius: "50%",
+                                                background: "rgba(239,68,68,0.9)", border: "none",
+                                                color: "#fff", fontSize: "14px", cursor: "pointer",
+                                                display: "flex", alignItems: "center", justifyContent: "center",
+                                            }}
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <label
+                                        style={{
+                                            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                                            padding: "24px", borderRadius: "10px", cursor: uploading ? "wait" : "pointer",
+                                            border: "2px dashed rgba(255,255,255,0.1)",
+                                            background: "rgba(255,255,255,0.02)",
+                                            transition: "border-color 0.2s",
+                                        }}
+                                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = "rgba(255,77,0,0.4)"; }}
+                                        onDragLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                                            const file = e.dataTransfer.files[0];
+                                            if (file?.type.startsWith("image/")) handleImageUpload(file);
+                                        }}
+                                    >
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            style={{ display: "none" }}
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handleImageUpload(file);
+                                            }}
+                                        />
+                                        <span style={{ fontSize: "24px", marginBottom: "4px" }}>{uploading ? "⏳" : "📷"}</span>
+                                        <span style={{ fontSize: "12px", color: "#666" }}>
+                                            {uploading ? "Загрузка..." : "Нажми или перетащи фото"}
+                                        </span>
+                                    </label>
+                                )}
+                            </div>
+
                             <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
                                 <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#aaa", cursor: "pointer" }}>
                                     <input type="checkbox" checked={editing.visible !== false} onChange={(e) => setEditing({ ...editing, visible: e.target.checked })} />

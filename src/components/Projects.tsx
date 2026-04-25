@@ -14,6 +14,7 @@ interface ProjectData {
     detailsRu: string;
     tags: string[];
     price: string;
+    imageUrl: string;
     link: string;
     visible: boolean;
 }
@@ -130,6 +131,7 @@ export default function Projects() {
             details: lang === "en" ? p.detailsEn : p.detailsRu,
             tags: p.tags,
             price: p.price,
+            imageUrl: p.imageUrl || "",
             link: p.link,
             gradient: GRADIENTS[i % GRADIENTS.length],
         }))
@@ -139,6 +141,7 @@ export default function Projects() {
             details: "",
             tags: p.tags,
             price: FALLBACK_PRICES[i] || "",
+            imageUrl: "",
             link: "",
             gradient: GRADIENTS[i % GRADIENTS.length],
         }));
@@ -189,16 +192,33 @@ export default function Projects() {
                                     e.currentTarget.style.borderColor = "var(--border)";
                                 }}
                             >
-                                {/* Image placeholder */}
+                                {/* Project Image */}
                                 <div
                                     className="aspect-[16/10] relative overflow-hidden"
                                     style={{ background: project.gradient }}
                                 >
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <span className="font-mono text-xs text-white/30">
-                                            {`{PROJECT_IMAGE_${i + 1}}`}
-                                        </span>
-                                    </div>
+                                    {project.imageUrl ? (
+                                        <img
+                                            src={project.imageUrl}
+                                            alt={project.title}
+                                            style={{
+                                                width: "100%",
+                                                height: "100%",
+                                                objectFit: "cover",
+                                                position: "absolute",
+                                                inset: 0,
+                                                transition: "transform 0.5s ease",
+                                            }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+                                        />
+                                    ) : (
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <span className="font-mono text-xs text-white/30">
+                                                {`{PROJECT_IMAGE_${i + 1}}`}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Info */}

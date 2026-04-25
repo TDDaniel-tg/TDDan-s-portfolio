@@ -29,6 +29,7 @@ model Project {
   detailsRu   String   @default("")
   tags        String[] @default([])
   price       String   @default("")
+  imageUrl    String   @default("")
   link        String   @default("")
   visible     Boolean  @default(true)
   order       Int      @default(0)
