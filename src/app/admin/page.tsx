@@ -339,12 +339,22 @@ function ProjectsTab() {
     const handleImageUpload = async (file: File) => {
         setUploading(true);
         try {
+            // Get upload config (VPS URL + secret)
+            const cfgRes = await fetch("/api/upload-config");
+            const cfg = await cfgRes.json();
+
+            // Upload directly to VPS (bypasses Netlify body limit)
             const form = new FormData();
             form.append("file", file);
-            const res = await fetch("/api/upload", { method: "POST", body: form });
+            const res = await fetch(`${cfg.filesServerUrl}/upload`, {
+                method: "POST",
+                headers: { "x-upload-secret": cfg.uploadSecret },
+                body: form,
+            });
             const data = await res.json();
             if (data.url) {
-                setEditing((prev) => prev ? { ...prev, imageUrl: data.url } : prev);
+                // Store proxied URL for HTTPS display
+                setEditing((prev) => prev ? { ...prev, imageUrl: `/api/files${data.url}` } : prev);
             }
         } catch (e) {
             console.error("Upload failed:", e);
@@ -357,11 +367,16 @@ function ProjectsTab() {
         if (!editing?.imageUrl) return;
         const filename = editing.imageUrl.split("/").pop();
         if (filename) {
-            await fetch("/api/upload", {
-                method: "DELETE",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ filename }),
-            });
+            try {
+                const cfgRes = await fetch("/api/upload-config");
+                const cfg = await cfgRes.json();
+                await fetch(`${cfg.filesServerUrl}/delete/${filename}`, {
+                    method: "DELETE",
+                    headers: { "x-upload-secret": cfg.uploadSecret },
+                });
+            } catch (e) {
+                console.error("Delete failed:", e);
+            }
         }
         setEditing((prev) => prev ? { ...prev, imageUrl: "" } : prev);
     };
